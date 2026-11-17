@@ -52,24 +52,23 @@ class UberEatsTarget : SmartspacerTargetProvider() {
             intent = if (state.contentIntent == null) ctx.packageManager.getLaunchIntentForPackage(pkg) else null
         )
 
-        // The app's real logo, in full color (loaded from the installed app)
-        val logo = EatsIcon.get(ctx, pkg)
+        // The app's icon in full color, as the card icon when there's no courier photo
+        val appIcon = EatsIcon.get(ctx, pkg)
             ?.let { Icon(AndroidIcon.createWithBitmap(it), contentDescription = name, shouldTint = false) }
         val courier = state.courier?.takeIf { settings.showCourier }
             ?.let { Icon(AndroidIcon.createWithBitmap(it), shouldTint = false) }
 
-        // Courier photo > the app's logo > bag glyph
-        val icon = courier ?: logo ?: Icon(AndroidIcon.createWithResource(ctx, R.drawable.ic_order))
+        // Courier photo > the app's icon > bag glyph
+        val icon = courier ?: appIcon ?: Icon(AndroidIcon.createWithResource(ctx, R.drawable.ic_order))
 
-        // With the courier's photo as the card icon, the app's logo goes after the subtitle (the
-        // supplemental spot, where weather usually shows), so it's clear where the info comes
-        // from. No name after it: the logo already spells it out. Without a courier the logo is
-        // already the card's icon, so it isn't repeated.
-        val source = logo?.takeIf { courier != null }?.let {
+        // After the subtitle (the supplemental spot, where weather usually shows), the app's logo
+        // with no background, tinted like the text, so it's clear where the info comes from:
+        // "[Uber] Eats" for orders in the Uber app, just the logo for the Uber Eats app
+        val source = EatsIcon.glyph(ctx, pkg)?.let {
             ComplicationTemplate.Basic(
                 "uber_eats_source_$smartspacerId",
-                it,
-                Text(""),
+                Icon(AndroidIcon.createWithBitmap(it), contentDescription = name, shouldTint = true),
+                Text(EatsIcon.afterLogo(pkg)),
                 openOrder
             ).create()
         }

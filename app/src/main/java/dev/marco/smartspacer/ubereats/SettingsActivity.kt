@@ -506,8 +506,8 @@ class SettingsActivity : ComponentActivity() {
 
     /**
      * Mirrors the Smartspacer card: title, then the card icon (same order as the Target:
-     * courier photo > app logo > bag glyph), the subtitle, and, when the courier's photo is the
-     * icon, the app's logo (Uber Eats, or Uber when the order is in the Uber app).
+     * courier photo > app icon > bag glyph), the subtitle, and the app's logo without its
+     * background ("[Uber] Eats" for the Uber app, just the logo for Uber Eats).
      * With no live order it shows an example order, so the settings' effect is still visible.
      * Switching between the two springs (bouncy pop-in and height change).
      */
@@ -521,6 +521,7 @@ class SettingsActivity : ComponentActivity() {
         val pkg = live?.sourcePackage ?: remember { EatsIcon.defaultPackage(this@SettingsActivity) }
         val sourceName = EatsIcon.name(pkg)
         val appIcon = remember(pkg) { EatsIcon.get(this@SettingsActivity, pkg) }
+        val glyph = remember(pkg) { EatsIcon.glyph(this@SettingsActivity, pkg) }
         val onCard = MaterialTheme.colorScheme.onPrimaryContainer
 
         // Darker fill with a lighter outline, both tinted from the wallpaper's primary color
@@ -603,13 +604,16 @@ class SettingsActivity : ComponentActivity() {
                         ) { text ->
                             FadingText(text, MaterialTheme.typography.titleMedium, onCard)
                         }
-                        // "· [logo]", like the real card: only with the courier's photo as the
-                        // icon (otherwise the logo is already the icon)
-                        appIcon?.takeIf { iconKind == IconKind.Courier }?.let {
+                        glyph?.let {
+                            // "· [Uber] Eats", like the real card
                             Spacer(Modifier.size(8.dp))
                             Text(SOURCE_BULLET.trim(), style = MaterialTheme.typography.titleMedium, color = onCard)
                             Spacer(Modifier.size(8.dp))
-                            Image(it.asImageBitmap(), sourceName, Modifier.size(24.dp))
+                            Image(it.asImageBitmap(), sourceName, Modifier.size(28.dp), colorFilter = ColorFilter.tint(onCard))
+                            EatsIcon.afterLogo(pkg).takeIf { t -> t.isNotEmpty() }?.let { t ->
+                                Spacer(Modifier.size(4.dp))
+                                Text(t, style = MaterialTheme.typography.titleMedium, color = onCard)
+                            }
                         }
                     }
                 }
