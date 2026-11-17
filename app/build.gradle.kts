@@ -45,7 +45,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    buildFeatures { compose = true }
+    // buildConfig: BuildConfig.VERSION_NAME, shown in the Source code button
+    buildFeatures { compose = true; buildConfig = true }
 }
 
 kotlin {
