@@ -1,0 +1,35 @@
+# Builds the plugin APK on GitHub. Run it from the Actions tab ("Build" > Run workflow)
+# or push to main, then download the "uber-eats-smartspacer" artifact from the run.
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APK
+        run: |
+          # The runner image ships the Android SDK; AGP downloads any missing platform
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uber-eats-smartspacer
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
