@@ -9,8 +9,11 @@ Versions follow MAJOR.MINOR.PATCH (semantic versioning):
 - **MINOR** (1.3.0): new features or changes to how the plugin works
 - **PATCH** (1.2.1): bug fixes and small adjustments
 
+0.x versions (0.1.0, 0.2.0...) are test versions, published as GitHub pre-releases; 1.0.0 comes
+once the plugin has worked with real orders.
+
 `versionName` in `app/build.gradle.kts` is the version, and `versionCode` is the same digits as
-one number: MAJOR × 10000 + MINOR × 100 + PATCH (1.2.1 → 10201). Tags are `v` + the version
+one number: MAJOR × 10000 + MINOR × 100 + PATCH (1.2.1 → 10201, 0.1.0 → 100). Tags are `v` + the version
 (`v1.2.1`); pushing a tag publishes a release (`.github/workflows/release.yml`).
 Releases are signed with the permanent key shared with the other Smartspacer plugins, from the
 `SIGNING_KEYSTORE_BASE64` and `SIGNING_PASSWORD` secrets (alias `smartspacer-plugins`).
