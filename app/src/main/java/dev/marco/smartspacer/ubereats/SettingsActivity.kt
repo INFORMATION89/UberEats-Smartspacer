@@ -506,7 +506,8 @@ class SettingsActivity : ComponentActivity() {
 
     /**
      * Mirrors the Smartspacer card: title, then the card icon (same order as the Target:
-     * courier photo > Uber Eats icon > bag glyph), the subtitle, and Uber Eats' logo + name.
+     * courier photo > app icon > bag glyph), the subtitle, and the app's logo + name (Uber Eats,
+     * or Uber when the order is in the Uber app).
      * With no live order it shows an example order, so the settings' effect is still visible.
      * Switching between the two springs (bouncy pop-in and height change).
      */
@@ -516,8 +517,11 @@ class SettingsActivity : ComponentActivity() {
         val live = OrderStore.state
         // New random example each time the settings open, and again after an order ends
         val sample = remember(SampleOrder.generation) { SampleOrder.create(this@SettingsActivity) }
-        val glyph = remember { EatsIcon.glyph(this@SettingsActivity) }
-        val appIcon = remember { EatsIcon.get(this@SettingsActivity) }
+        // The app the live order is in, or Uber Eats (else Uber) for the example
+        val pkg = live?.sourcePackage ?: remember { EatsIcon.defaultPackage(this@SettingsActivity) }
+        val sourceName = EatsIcon.name(pkg)
+        val glyph = remember(pkg) { EatsIcon.glyph(this@SettingsActivity, pkg) }
+        val appIcon = remember(pkg) { EatsIcon.get(this@SettingsActivity, pkg) }
         val onCard = MaterialTheme.colorScheme.onPrimaryContainer
 
         // Darker fill with a lighter outline, both tinted from the wallpaper's primary color
@@ -579,7 +583,7 @@ class SettingsActivity : ComponentActivity() {
                             Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
                                 when (kind) {
                                     IconKind.Courier -> courier?.let { Image(it.asImageBitmap(), null, Modifier.size(26.dp)) }
-                                    IconKind.App -> appIcon?.let { Image(it.asImageBitmap(), SOURCE_NAME, Modifier.size(24.dp)) }
+                                    IconKind.App -> appIcon?.let { Image(it.asImageBitmap(), sourceName, Modifier.size(24.dp)) }
                                     IconKind.Glyph -> Icon(painterResource(R.drawable.ic_order), null, Modifier.size(22.dp), tint = onCard)
                                 }
                             }
@@ -607,7 +611,7 @@ class SettingsActivity : ComponentActivity() {
                             Spacer(Modifier.size(8.dp))
                             Image(it.asImageBitmap(), null, Modifier.size(22.dp), colorFilter = ColorFilter.tint(onCard))
                             Spacer(Modifier.size(6.dp))
-                            Text(SOURCE_NAME, style = MaterialTheme.typography.titleMedium, color = onCard)
+                            Text(sourceName, style = MaterialTheme.typography.titleMedium, color = onCard)
                         }
                     }
                 }
@@ -780,7 +784,7 @@ class SettingsActivity : ComponentActivity() {
     private fun ExtraRow(settings: Settings, iconShape: Shape) {
         var selected by remember { mutableStateOf(settings.extra) }
         val options = listOf(
-            Settings.Extra.PROGRESS to R.string.setting_extra_progress,
+            Settings.Extra.TIME_LEFT to R.string.setting_extra_time_left,
             Settings.Extra.PROGRESS to R.string.setting_extra_progress,
             Settings.Extra.NONE to R.string.setting_extra_none
         )

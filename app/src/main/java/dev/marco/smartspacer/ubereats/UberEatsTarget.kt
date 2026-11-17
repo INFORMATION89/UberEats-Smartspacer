@@ -43,28 +43,29 @@ class UberEatsTarget : SmartspacerTargetProvider() {
         val state = OrderStore.state ?: return emptyList()
         val ctx = provideContext()
         val settings = Settings(ctx)
-        // Tapping opens the order in Uber Eats (or just Uber Eats if there's no intent)
+        // The app the order is in: Uber Eats, or the Uber app
+        val pkg = state.sourcePackage ?: EatsIcon.defaultPackage(ctx)
+        val name = EatsIcon.name(pkg)
+        // Tapping opens the order (or just the app if the notification has no intent)
         val openOrder = TapAction(
             pendingIntent = state.contentIntent,
-            intent = if (state.contentIntent == null) {
-                ctx.packageManager.getLaunchIntentForPackage(EatsListener.EATS_PACKAGE)
-            } else null
+            intent = if (state.contentIntent == null) ctx.packageManager.getLaunchIntentForPackage(pkg) else null
         )
 
-        // Courier photo (full color) > Uber Eats' app icon (full color) > bag glyph
+        // Courier photo (full color) > the app's icon (full color) > bag glyph
         val icon = state.courier?.takeIf { settings.showCourier }
             ?.let { Icon(AndroidIcon.createWithBitmap(it), shouldTint = false) }
-            ?: EatsIcon.get(ctx)
-                ?.let { Icon(AndroidIcon.createWithBitmap(it), contentDescription = SOURCE_NAME, shouldTint = false) }
+            ?: EatsIcon.get(ctx, pkg)
+                ?.let { Icon(AndroidIcon.createWithBitmap(it), contentDescription = name, shouldTint = false) }
             ?: Icon(AndroidIcon.createWithResource(ctx, R.drawable.ic_order))
 
-        // "[logo] Uber Eats" after the subtitle (the supplemental spot, where weather usually
-        // shows), so it's clear the info comes from Uber Eats. Logo only, tinted like the text.
-        val source = EatsIcon.glyph(ctx)?.let {
+        // "[logo] Uber Eats" (or "[logo] Uber") after the subtitle (the supplemental spot, where
+        // weather usually shows), so it's clear where the info comes from. Logo only, tinted.
+        val source = EatsIcon.glyph(ctx, pkg)?.let {
             ComplicationTemplate.Basic(
                 "uber_eats_source_$smartspacerId",
-                Icon(AndroidIcon.createWithBitmap(it), contentDescription = SOURCE_NAME, shouldTint = true),
-                Text(SOURCE_NAME),
+                Icon(AndroidIcon.createWithBitmap(it), contentDescription = name, shouldTint = true),
+                Text(name),
                 openOrder
             ).create()
         }

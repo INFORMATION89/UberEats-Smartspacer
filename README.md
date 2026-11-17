@@ -1,6 +1,6 @@
 # Uber Eats for Smartspacer
 
-A [Smartspacer](https://github.com/KieronQuinn/Smartspacer) plugin that shows your Uber Eats order on your home and lock screen while it's on its way: Uber Eats' status ("Preparing your order", "Arriving at 7:42 PM"), the restaurant or courier, and the time left or how far along the order is, with the courier's photo and Uber Eats' logo. Tapping the card opens the order in Uber Eats. It can also hide the order notification on the lock screen while the card is showing (with Native Smartspace), and its settings show a live preview of the card. The plugin is in English and Spanish, and the card shows Uber Eats' own text in whatever language Uber Eats uses.
+A [Smartspacer](https://github.com/KieronQuinn/Smartspacer) plugin that shows your Uber Eats order on your home and lock screen while it's on its way: Uber Eats' status ("Preparing your order", "Arriving at 7:42 PM"), the restaurant or courier, and the time left or how far along the order is, with the courier's photo and Uber Eats' logo. Tapping the card opens the order. It works with the Uber Eats app and with food ordered in the Uber app. It can also hide the order notification on the lock screen while the card is showing (with Native Smartspace), and its settings show a live preview of the card. The plugin is in English and Spanish, and the card shows Uber Eats' own text in whatever language Uber Eats uses.
 
 To set it up, install the APK from the [latest release](../../releases/latest), turn on **Notification access** for *Uber Eats for Smartspacer*, then add the **Uber Eats** Target in Smartspacer and place an order.
 
@@ -10,7 +10,7 @@ If Google Play Protect blocks the install ("App blocked to protect your device")
 
 Uber Eats has no API for your orders, so the plugin reads the order from Uber Eats' tracking notification, and Android only allows that with Notification access. Here's what it does with it:
 
-- **It reads only Uber Eats' notifications.** Every other notification is ignored: the plugin checks which app a notification comes from, and nothing else, before dropping it. Uber Eats' promos are read and skipped too, since only the order's live tracking notification is shown.
+- **It reads only Uber Eats' and Uber's notifications.** Every other notification is ignored: the plugin checks which app a notification comes from, and nothing else, before dropping it. Promos are read and skipped, since only the order's live tracking notification is shown, and so are Uber rides (those are for the Uber plugin).
 - **It has no internet permission**, so it can't send anything anywhere. The order stays in memory while it's on its way and is gone when it arrives; the only thing saved is your settings.
 - **It never dismisses or changes notifications.** Hiding the order notification on the lock screen is done by Smartspacer while the card is showing; the notification stays in your shade.
 

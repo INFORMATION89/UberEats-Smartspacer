@@ -21,7 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.graphics.drawable.toBitmap
 import com.kieronquinn.app.smartspacer.sdk.provider.SmartspacerTargetProvider
 
-/** The live order, as read from Uber Eats' notification. */
+/** The live order, as read from Uber Eats' (or the Uber app's) notification. */
 data class OrderState(
     /** Uber Eats' status line, e.g. "Preparing your order" or "Arriving at 7:42 PM" */
     val title: String,
@@ -37,7 +37,9 @@ data class OrderState(
     /** Order progress, 0..1, if the notification has a progress bar */
     val progress: Float? = null,
     /** Key of the notification, so Native Smartspace can hide it on the lock screen */
-    val notificationKey: String? = null
+    val notificationKey: String? = null,
+    /** The app the order is in: Uber Eats, or the Uber app (which has Uber Eats inside) */
+    val sourcePackage: String? = null
 ) {
     /** "12 min": Uber Eats' own text, or else the minutes until the expected time */
     fun timeLeftText(now: Long = System.currentTimeMillis()): String? =
@@ -57,18 +59,18 @@ object OrderStore {
 
 /**
  * The plugin's notification listener. Android hands a listener every app's notifications and
- * can't be told to limit them to one app, so this drops anything that isn't from Uber Eats
- * immediately, looking only at the package name, before reading any content.
+ * can't be told to limit them to some apps, so this drops anything that isn't from Uber Eats
+ * or the Uber app immediately, looking only at the package name, before reading any content.
  */
 class EatsListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         // Pick up an order that was already on its way before we connected
-        activeNotifications.orEmpty().forEach { if (isUberEats(it)) OrderReader.onPosted(this, it) }
+        activeNotifications.orEmpty().forEach { if (isFromUber(it)) OrderReader.onPosted(this, it) }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (isUberEats(sbn)) OrderReader.onPosted(this, sbn)
+        if (isFromUber(sbn)) OrderReader.onPosted(this, sbn)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
@@ -80,10 +82,13 @@ class EatsListener : NotificationListenerService() {
     // the order, so don't leave its last state stuck on the card
     override fun onListenerDisconnected() = OrderReader.onLost(this)
 
-    private fun isUberEats(sbn: StatusBarNotification) = sbn.packageName == EATS_PACKAGE
+    private fun isFromUber(sbn: StatusBarNotification) = sbn.packageName in PACKAGES
 
     companion object {
         const val EATS_PACKAGE = "com.ubercab.eats"
+        /** The Uber app, where food can also be ordered (its Uber Eats section) */
+        const val UBER_PACKAGE = "com.ubercab"
+        val PACKAGES = setOf(EATS_PACKAGE, UBER_PACKAGE)
     }
 }
 
@@ -114,6 +119,22 @@ object OrderReader {
     /** Below this, an Uber Eats notification is most likely a promo, not the order */
     private const val MIN_SCORE = 2
 
+    /*
+     * The Uber app posts both rides and food orders, and rides belong to the Uber plugin, so
+     * its notifications only count when they look like food: a channel named for orders, or
+     * order words in the text with no ride words. Uber Eats' own app needs no such check.
+     */
+    private val FOOD_CHANNEL = Regex("eats|order|deliver|food", RegexOption.IGNORE_CASE)
+    private val FOOD_WORDS = Regex(
+        "\\b(order|food|restaurant|courier|delivery|delivered|pedido|comida|restaurante|repartidor|entrega)",
+        RegexOption.IGNORE_CASE
+    )
+    private val RIDE_WORDS = Regex("\\b(driver|ride|trip|conductor|viaje)", RegexOption.IGNORE_CASE)
+
+    /** Uber app notifications already seen to be a food order, so later updates that only say
+     *  "Arriving at 7:42 PM" still count. Cleared when the notification goes away. */
+    private val uberFoodKeys = HashSet<String>()
+
     private class Candidate(val state: OrderState, val score: Int, val postTime: Long)
 
     /** Order-looking Uber Eats notifications by key (usually just one) */
@@ -133,12 +154,14 @@ object OrderReader {
 
     @Synchronized
     fun onRemoved(context: Context, key: String) {
+        uberFoodKeys.remove(key)
         if (candidates.remove(key) != null) publish(context)
     }
 
     @Synchronized
     fun onLost(context: Context) {
         candidates.clear()
+        uberFoodKeys.clear()
         publish(context)
     }
 
@@ -174,6 +197,7 @@ object OrderReader {
         val title = text(Notification.EXTRA_TITLE_BIG) ?: text(Notification.EXTRA_TITLE) ?: return null
         val body = text(Notification.EXTRA_TEXT) ?: text(Notification.EXTRA_BIG_TEXT) ?: text(Notification.EXTRA_SUB_TEXT)
         val shortCritical = text(EXTRA_SHORT_CRITICAL_TEXT)
+        if (sbn.packageName == EatsListener.UBER_PACKAGE && !isUberFood(sbn, title, body)) return null
 
         val progress = extras.progress()
         val isProgressStyle = extras.getString(Notification.EXTRA_TEMPLATE) == TEMPLATE_PROGRESS_STYLE
@@ -204,11 +228,22 @@ object OrderReader {
                 timeLeft = shortCritical?.takeIf { it != title },
                 etaMillis = eta,
                 progress = progress,
-                notificationKey = sbn.key
+                notificationKey = sbn.key,
+                sourcePackage = sbn.packageName
             ),
             score,
             sbn.postTime
         )
+    }
+
+    /** Whether a notification from the Uber app is a food order (not a ride). */
+    private fun isUberFood(sbn: StatusBarNotification, title: String, body: String?): Boolean {
+        if (sbn.key in uberFoodKeys) return true
+        val words = listOfNotNull(title, body).joinToString(" ")
+        val food = sbn.notification.channelId?.let { FOOD_CHANNEL.containsMatchIn(it) } == true ||
+            (FOOD_WORDS.containsMatchIn(words) && !RIDE_WORDS.containsMatchIn(words))
+        if (food) uberFoodKeys += sbn.key
+        return food
     }
 
     private fun Bundle.progress(): Float? {
@@ -231,10 +266,11 @@ object OrderReader {
         title == other.title && text == other.text && timeLeft == other.timeLeft &&
             etaMillis?.div(60_000) == other.etaMillis?.div(60_000) &&
             progressText() == other.progressText() && notificationKey == other.notificationKey &&
+            sourcePackage == other.sourcePackage &&
             (courier == null) == (other.courier == null)
 
     /**
-     * Debug builds only: one line per Uber Eats notification, so the reading can be tuned
+     * Debug builds only: one line per Uber Eats or Uber notification, so the reading can be tuned
      * against a real order. View with `adb logcat -s UberEats`.
      */
     private fun logNotification(sbn: StatusBarNotification) {
