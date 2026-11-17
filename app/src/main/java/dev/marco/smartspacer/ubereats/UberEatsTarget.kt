@@ -52,20 +52,24 @@ class UberEatsTarget : SmartspacerTargetProvider() {
             intent = if (state.contentIntent == null) ctx.packageManager.getLaunchIntentForPackage(pkg) else null
         )
 
-        // Courier photo (full color) > the app's icon (full color) > bag glyph
-        val icon = state.courier?.takeIf { settings.showCourier }
+        // The app's real logo, in full color (loaded from the installed app)
+        val logo = EatsIcon.get(ctx, pkg)
+            ?.let { Icon(AndroidIcon.createWithBitmap(it), contentDescription = name, shouldTint = false) }
+        val courier = state.courier?.takeIf { settings.showCourier }
             ?.let { Icon(AndroidIcon.createWithBitmap(it), shouldTint = false) }
-            ?: EatsIcon.get(ctx, pkg)
-                ?.let { Icon(AndroidIcon.createWithBitmap(it), contentDescription = name, shouldTint = false) }
-            ?: Icon(AndroidIcon.createWithResource(ctx, R.drawable.ic_order))
 
-        // "[logo] Uber Eats" (or "[logo] Uber") after the subtitle (the supplemental spot, where
-        // weather usually shows), so it's clear where the info comes from. Logo only, tinted.
-        val source = EatsIcon.glyph(ctx, pkg)?.let {
+        // Courier photo > the app's logo > bag glyph
+        val icon = courier ?: logo ?: Icon(AndroidIcon.createWithResource(ctx, R.drawable.ic_order))
+
+        // With the courier's photo as the card icon, the app's logo goes after the subtitle (the
+        // supplemental spot, where weather usually shows), so it's clear where the info comes
+        // from. No name after it: the logo already spells it out. Without a courier the logo is
+        // already the card's icon, so it isn't repeated.
+        val source = logo?.takeIf { courier != null }?.let {
             ComplicationTemplate.Basic(
                 "uber_eats_source_$smartspacerId",
-                Icon(AndroidIcon.createWithBitmap(it), contentDescription = name, shouldTint = true),
-                Text(name),
+                it,
+                Text(""),
                 openOrder
             ).create()
         }
